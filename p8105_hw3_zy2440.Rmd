@@ -1,0 +1,129 @@
+---
+title: "p8105_hw3_zy2440"
+author: "yangzhixin"
+date: "2020年10月8日"
+output: html_document
+---
+
+
+#Problem 1
+
+```{r 1.1, warning = FALSE}
+library(dplyr)
+library(p8105.datasets)
+data("instacart")
+aisles <- instacart %>%
+  group_by(aisle) %>%
+  summarize(n_number=n())
+```
+There are `r nrow(aisles)` aisles in total, the most items are ordered from aisle "`r aisles[order(-aisles[,2]),][1,1]`".
+
+The plot:
+```{r 1.2plot, warning = FALSE}
+library(tidyverse)
+aisles %>%
+  filter(n_number>10000) %>%
+  mutate(aisle=fct_reorder(aisle,n_number)) %>%
+  ggplot(aes(x=aisle,y=n_number)) +
+  geom_point() +
+  theme(axis.text = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+The table:
+```{r 1.3table}
+instacart %>%
+  filter(aisle %in% c("baking ingredients","dog food care","packaged vegetables friuts "))%>%
+  group_by(aisle) %>%
+  count(product_name) %>%
+  mutate(rank = min_rank(desc(n))) %>%
+  filter(rank < 4) %>%
+  arrange(aisle,rank) %>%
+  knitr::kable()
+  
+```
+
+Pink Lady Apples and Coffee Ice Cream:
+```{r 1.4, warning = FALSE}
+instacart %>%
+  filter(product_name %in% c("Pink Lady Apples","Coffee Ice Cream")) %>%
+  group_by(product_name,order_dow) %>%
+  summarize(mean_hour = mean(order_hour_of_day)) %>%
+  pivot_wider(names_from = order_dow, values_from = mean_hour)
+```
+
+
+#Problem 2
+
+##2.1 Wrangle the data. 
+```{r 2.1, warning = FALSE}
+accel_df <- read_csv("accel_data.csv") %>%
+  pivot_longer(cols=starts_with("activity"), names_to="activity_minute", values_to="activity_count") %>%
+  mutate(day_type=ifelse(day %in% c("Monday","Tuesday","Wednesday","Thursday","Friday"),"weekday","weekend"))
+```
+Summary:
+For the dataset wrangled, the variables are `r colnames(accel_df)`, `r nrow(accel_df)` observations are included.
+
+##2.2 Traditional analyses of accelerometer data
+```{r 2.2 data summary}
+accel_day <- accel_df %>%
+  group_by(day_id) %>%
+  summarize(day_count = sum(activity_count)) %>%
+  merge(distinct(accel_df,day_id,.keep_all = TRUE)[c(1,2,3,6)])
+```
+From this dataset, it is apparently that Fridays tend to have higher accounts and Tuesdays tend to have lower accounts. 
+
+#2.3 Plot
+```{r 2.3plot}
+accel_df %>%
+  ggplot(aes(x=paste(day_id,activity_minute),y=activity_count)) +
+  geom_point(aes(color = day)) +
+  theme(axis.text = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+It can be seen from this plot that usually the highest accounts are observed on Friday and Sunday and the lowest accounts are on Tuesday.
+
+#Problem 3
+
+##3.1 Data cleaning
+```{r 3.1clean}
+data("ny_noaa")
+noaa <- ny_noaa %>%
+  separate(date,into=c('year','month','day')) %>%
+  mutate(tmax = as.numeric(tmax),tmin = as.numeric(tmin))
+snow_sort <- names(sort(table(noaa$snow),decreasing = TRUE))
+```
+##Summary
+The dataset includes variables `r colnames(ny_noaa)` and there are `r nrow(ny_noaa)` observations in total. For perception, there are `r round(sum(is.na(ny_noaa$prcp))/nrow(ny_noaa)*100,2)`% values missing, and for snow, there are `r round(sum(is.na(ny_noaa$snow))/nrow(ny_noaa)*100,2)`% values missing.
+
+After cleaning and sorting of the data, we can see the most observed values are `r snow_sort[c(1,2,3)]`
+
+##3.2 Plot temperature in January and July
+```{r 3.2}
+noaa %>%
+  group_by(id,year,month) %>%
+  summarize(mean_tmax=mean(tmax,na.rm = TRUE)) %>%
+  filter(xor(month =="01",month=="07")) %>%
+  ggplot(aes(x=paste(id,year),y=mean_tmax,color=year,group = id)) +
+  geom_point() +
+  geom_path() +
+  facet_grid(.~month)
+```
+
+It can be seen from this plot that the average tempreture in July is usually higher than in January. There are a few outliers in each month but they do not compromise the structure we observe.
+
+##3.3
+```{r 3.3}
+library(hexbin)
+noaa %>%
+  ggplot(aes(x=tmin,y=tmax)) +
+  geom_hex()
+noaa %>%
+  filter(snow>0 & snow<100) %>%
+  ggplot(aes(x=year,y=snow)) +
+  geom_point() +
+  theme(axis.text = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+  
+```
+
+
